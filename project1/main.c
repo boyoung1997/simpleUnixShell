@@ -11,32 +11,36 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_SIZE 987654321
+#define MAX_SIZE 3000
 #define INTERACTIVE 1
 #define BATCH 2
 
 char **tok(char *inp, char *sep){
-    char *ptr;
-    char **str_save;
-    int length = strlen(inp);
     
-    str_save = (char**)malloc(sizeof(char*)*length);
-    
-    
+    char **str_save = (char**)malloc(sizeof(char*)*strlen(inp)+1);
     int i = 0;
-    ptr = strtok(inp, sep);
     
+    str_save[0] = NULL;
     
-    while(ptr != NULL && strlen(ptr) != 0){
-        str_save[i] = ptr;
-        i++;
+    char* ptr = strtok(inp, sep);
+    
+    if(ptr!=NULL){
+        if(strlen(ptr)!=0){
+            str_save[i] = malloc(sizeof(char)*strlen(ptr)+1);
+            strcpy(str_save[i], ptr);
+            i++;
+        }
     }
     
-    while(strlen(ptr) != 0){
-        ptr = strtok(NULL, sep);
-        str_save[i] = ptr;
-        i++;
+    while((ptr = strtok(NULL, sep))){
+        if(strlen(ptr) != 0){
+            str_save[i] = (char *)malloc(sizeof(char) * (strlen(ptr) + 1));
+            strcpy(str_save[i], ptr);
+            i++;
+        }
     }
+    
+    str_save[i] = NULL;
     
     if(str_save[0] == NULL)
         return NULL;
@@ -45,54 +49,67 @@ char **tok(char *inp, char *sep){
     
 }
 
-int main(int argc, const char * argv[]) {
+
+int main(int argc, char * argv[]) {
     
     FILE *fp;
     
     char str[MAX_SIZE]; //given string
+    char **str_1;
+    char ***str_2;
+    int * tmp;  //store pid temporarily
     int check; //interactive or batch (checking)
-    int num = 0, num2 = 0, i = 0, j=0; // initializing
+    int num = 0, num2 = 0, i = 0; // initializing
     int status;
+
     
     if(argc > 1){
-        check = INTERACTIVE;
+        check = 2;
         fp = fopen(argv[1], "r");
     }
     
     else if (argc == 1){
-        check = BATCH;
+        check = 1;
         fp = stdin;
     }
     
     else{
-        printf("Input file error");
+        printf("Input error");
     }
     
     while(1){
-        if(check == INTERACTIVE){
+        
+        num2 = 0;
+        if(check == 1){
             printf("prompt>");
             
         }
         
-        fgets(str, MAX_SIZE, fp);
+        if(fgets(str, MAX_SIZE, fp) == NULL){
+            exit(EXIT_FAILURE);
+        }
+        str[(strlen(str)-1)] = '\0';
         
-        /* using strtok function with ";" */
-        char **str_1 = tok(str, ";");
+        /* using strtok function*/
+        str_1 = tok(str, ";");
         
-        while(str_1 != NULL){
-            for(i=0; str_1[i] != NULL; i++){
+        if(str_1 != NULL){
+            for(num=0;str_1[num]!=NULL;){
                 num++;
             }
         }
         
-        
-        /* using strtok function with " " */
-        char ***str_2 = (char ***)malloc(sizeof(char **) * num);
+        str_2 = (char ***)malloc(sizeof(char **) * (num+1));
         
         for(i=0; i<num; i++){
             str_2[num2] = tok(str_1[i], " ");
             num2++;
+            if(str_2[num2-1] == NULL){
+                num2--;
+            }
         }
+        
+        tmp = (int *)malloc(sizeof(int) * (num + 1));
         
         
         for(i=0;i<num2;i++){
@@ -107,75 +124,33 @@ int main(int argc, const char * argv[]) {
             }
             
             else if(pid == 0) {
-                if (execvp(str_2[i][0], str_2[i]) < 0) {
-                    printf("ERROR: exec failed\n");
-                    exit(1);
-                }
+                execvp(str_2[i][0], str_2[i]);
+                printf("This statement should not be executed if execvp is successful.\n");
             }
             
             else{
-                while (wait(&status) != pid);
+                tmp[i] = pid;
             }
             
+        }
+        
+        for(i = 0; i < num2; i++){
+            waitpid(tmp[i], &status, 0);
         }
         
         for(i = 0; i < num2; i++) {
-            for(j=0; str_2[i] != NULL;j++){
+            if(str_2[i] != NULL){
                 free(str_2[i]);
             }
-            free(str_2);
-            
         }
+        free(str_2);
         
+        if(str_1!=NULL)
+            free(str_1);
         
-        for(i = 0; str_1[i] != NULL; i++){
-            free(str_1[i]);
-        }
-        
-        
-        //
-        //        for(i = 0; i < num2; i++) {
-        //            free(str_2[i]);
-        //        }
-        //        free(str_1);
-        //
-        //
-        
-        
-        //        pid_t pid;
-        //        int status;
-        //
-        //        if((pid = fork()) <0 ){
-        //            printf("error : cannot execute fork function\n");
-        //            exit(1);
-        //        }
-        //
-        //        else if (pid == 0){
-        //            while(fgets(str, MAX_SIZE, fp)){
-        //                idx = tok(str_save, str);
-        //            }
-        //
-        //            for(i = 0 ; i < idx ; i++){
-        //                printf("%c\n", str_save[i]);
-        //                execvp(str_save[i], str_save);
-        //            }
-        //
-        //            if(execvp(str_save[i], str_save)<0){
-        //                printf("error\n");
-        //                exit(1);
-        //            }
-        //            
-        //        }
-        //        
-        //        else {
-        //            while (wait(&status) != pid);
-        //        }
-        //        
-        //    }
-        
-        
+        free(tmp);
+
     }
-    
     
     return 0;
 }
